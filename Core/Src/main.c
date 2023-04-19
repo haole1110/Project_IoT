@@ -22,7 +22,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "button.h"
+#include "global.h"
 #include "scheduler.h"
+#include "uart_communication.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,6 +44,8 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
 
+UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -50,20 +54,27 @@ TIM_HandleTypeDef htim2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void ledBlue(){
-	HAL_GPIO_TogglePin(blue_GPIO_Port, blue_Pin);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef * huart) {
+	if(huart->Instance == USART2){
+		buffer[index_buffer++] = temp;
+		if(index_buffer == MAX_BUFFER_SIZE) index_buffer = 0;
+		buffer_flag = 1;
+		HAL_UART_Transmit(&huart2, &temp, 1, 50);
+		HAL_UART_Receive_IT(&huart2, &temp, 1);
+	}
 }
-void ledGreen(){
-	HAL_GPIO_TogglePin(green_GPIO_Port, green_Pin);
+void sendData(){
+	uart_communiation(huart2);
 }
-void ledOrange(){
-	HAL_GPIO_TogglePin(orange_GPIO_Port, orange_Pin);
+void readData(){
+	readDataUART(huart2);
 }
 void ledPink(){
 	HAL_GPIO_TogglePin(pink_GPIO_Port, pink_Pin);
@@ -110,15 +121,12 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM2_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim2);
-  SCH_Add_Task(ledBlue, 500, 500);
-  SCH_Add_Task(ledGreen, 1000, 1000);
-  SCH_Add_Task(ledOrange, 1500, 1500);
-  SCH_Add_Task(ledPink, 2000, 2000);
-  SCH_Add_Task(ledPurple, 2500, 2500);
-  SCH_Add_Task(ledYellow, 2000, 0);
-  SCH_Add_Task(ledRed, TIME_CYCLE, TIME_CYCLE);
+  HAL_UART_Receive_IT(&huart2, &temp, 1);
+  SCH_Add_Task(readData, 500, 500);
+  SCH_Add_Task(sendData, 2000, 2000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -215,6 +223,39 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -227,13 +268,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, blue_Pin|green_Pin|orange_Pin|pink_Pin
-                          |purple_Pin|yellow_Pin|red_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, green_Pin|orange_Pin|pink_Pin|purple_Pin
+                          |yellow_Pin|red_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : blue_Pin green_Pin orange_Pin pink_Pin
-                           purple_Pin yellow_Pin red_Pin */
-  GPIO_InitStruct.Pin = blue_Pin|green_Pin|orange_Pin|pink_Pin
-                          |purple_Pin|yellow_Pin|red_Pin;
+  /*Configure GPIO pins : green_Pin orange_Pin pink_Pin purple_Pin
+                           yellow_Pin red_Pin */
+  GPIO_InitStruct.Pin = green_Pin|orange_Pin|pink_Pin|purple_Pin
+                          |yellow_Pin|red_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
